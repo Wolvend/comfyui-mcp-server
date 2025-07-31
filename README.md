@@ -1,25 +1,53 @@
 # ComfyUI MCP Server
 
-A powerful Python-based MCP (Model Context Protocol) server that interfaces with [ComfyUI](https://github.com/comfyanonymous/ComfyUI) to enable AI agents like Claude to generate images through natural language commands.
+A comprehensive Python-based MCP (Model Context Protocol) server that interfaces with [ComfyUI](https://github.com/comfyanonymous/ComfyUI) to enable AI agents like Claude to perform advanced image and video generation, manipulation, and analysis through natural language commands.
 
-## 🚀 What's New (v1.2.0)
+## 🚀 What's New (v2.0.0) - MAJOR UPDATE!
 
-### Major Protocol Fix
-- 🔧 **Fixed MCP Connection Issues**: Migrated from WebSocket to proper MCP stdio protocol
-- ✅ **Full Claude Desktop Compatibility**: Now works seamlessly with Claude Desktop
-- 🚨 **Resolved "Failed to reconnect" errors**
+### 🎬 Video Generation & Animation
+- **Text-to-Video**: Generate videos from text descriptions
+- **Image Animation**: Bring static images to life
+- **Frame Interpolation**: Smooth transitions between images
 
-### New Tools Added (11 new, 16 total)
-- 📸 **Image Management**: `get_recent_images`, `get_image_metadata`, `cleanup_old_images`
-- 🎨 **Advanced Generation**: `batch_generate`, `generate_variations`
-- 📊 **System Monitoring**: `get_system_stats`, `get_queue_status`, `clear_comfyui_cache`
-- 🔍 **Discovery**: `list_models`, `get_node_info`, `validate_workflow`
+### 🎨 Advanced Image Control
+- **ControlNet Support**: Guided generation with pose, depth, edges
+- **Inpainting/Outpainting**: Smart fill and canvas extension
+- **Style Transfer**: Apply artistic styles between images
 
-### Enhancements
+### 🔧 Professional Enhancement
+- **AI Upscaling**: 2x/4x with ESRGAN, Real-ESRGAN
+- **Face Restoration**: GFPGAN/CodeFormer integration
+- **Background Removal**: Automatic subject isolation
+- **Color Grading**: Professional color correction
+
+### 🎯 Creative Tools
+- **Multi-Image Blending**: Advanced compositing
+- **LoRA Styling**: Apply multiple style models
+- **Region Control**: Different prompts for different areas
+
+### 📊 Smart Analysis
+- **Prompt Enhancement**: AI-powered prompt optimization
+- **Object Detection**: Identify elements in images
+- **Quality Comparison**: Technical image analysis
+- **Time Estimation**: Predict generation duration
+
+### 🔄 Workflow Automation
+- **Animation Sequences**: Multi-prompt animations
+- **Batch Styling**: Consistent style across images
+- **Progressive Enhancement**: Multi-stage upscaling
+- **Template System**: Pre-configured workflows
+
+### ⚡ Real-time Features
+- **WebSocket Progress**: Live generation updates
+- **Preview Streaming**: Low-res previews
+- **Queue Management**: Priority control
+- **Cancellation**: Stop in-progress tasks
+
+### Previous Updates (v1.2.0)
+- ✅ Fixed MCP connection issues (WebSocket → stdio)
+- ✅ Full Claude Desktop compatibility
 - ✅ Enhanced error handling and validation
-- ✅ Extended parameter support for fine-tuned control
-- ✅ Proper dependency management with `requirements.txt`
-- ✅ Multi-user Git configuration support
+- ✅ 16 core tools for generation and management
 
 ## Overview
 
@@ -47,31 +75,70 @@ This MCP server provides a comprehensive interface for AI assistants to:
   - Denoising strength
   - Negative prompts
 
-### 🛠️ Available MCP Tools (16 Total)
+### 🛠️ Available MCP Tools (46 Total)
 
-#### Core Generation
+#### Core Generation (6 tools)
 1. **`generate_image`** - Generate images with extensive customization options
 2. **`batch_generate`** - Generate multiple images with different prompts efficiently
 3. **`generate_variations`** - Create variations by modifying prompts
+4. **`generate_video`** - Create videos from text descriptions
+5. **`image_to_video`** - Animate static images into videos
+6. **`video_interpolation`** - Create smooth transitions between images
 
-#### System & Status
-4. **`get_server_info`** - Get server version, URL, and available models
-5. **`health_check`** - Verify ComfyUI connectivity and response time
-6. **`get_system_stats`** - Monitor GPU/CPU/memory usage and performance
-7. **`get_queue_status`** - Check running and pending generation jobs
-8. **`clear_comfyui_cache`** - Free up VRAM by clearing model cache
+#### Advanced Image Control (4 tools)
+7. **`controlnet_generate`** - Use ControlNet for pose/depth/edge guidance
+8. **`inpaint_image`** - Intelligently fill masked areas
+9. **`outpaint_image`** - Extend images beyond original borders
+10. **`style_transfer`** - Apply artistic styles between images
 
-#### Discovery & Validation
-9. **`list_workflows`** - List all available workflow JSON files
-10. **`list_models`** - List models by type (checkpoints, LoRAs, VAE, etc.)
-11. **`get_node_info`** - Explore available ComfyUI nodes and their parameters
-12. **`validate_workflow`** - Validate workflow compatibility before use
+#### Image Enhancement (4 tools)
+11. **`upscale_image`** - AI-powered 2x/4x upscaling
+12. **`face_restore`** - Restore and enhance faces
+13. **`remove_background`** - Automatic background removal
+14. **`color_correction`** - Professional color grading
 
-#### Output Management
-13. **`get_recent_images`** - Retrieve recently generated images with metadata
-14. **`get_image_metadata`** - Extract generation parameters from images
-15. **`cleanup_old_images`** - Remove old images (with dry-run safety option)
-16. **`get_generation_status`** - Check generation progress (placeholder)
+#### Creative Tools (4 tools)
+15. **`blend_images`** - Blend multiple images with various modes
+16. **`apply_lora_styles`** - Apply multiple LoRA style models
+17. **`mask_guided_generation`** - Different content in different regions
+18. **`create_variations`** - (duplicate of #3)
+
+#### Analysis & Optimization (4 tools)
+19. **`analyze_prompt`** - AI-powered prompt improvement
+20. **`detect_objects`** - Identify objects in images
+21. **`compare_images`** - Technical quality comparison
+22. **`estimate_generation_time`** - Predict processing duration
+
+#### Workflow Automation (4 tools)
+23. **`create_animation_sequence`** - Multi-prompt animation sequences
+24. **`batch_style_apply`** - Consistent style across images
+25. **`progressive_upscale`** - Multi-stage quality enhancement
+26. **`template_workflows`** - Pre-configured workflow templates
+
+#### Real-time Features (4 tools)
+27. **`websocket_progress`** - Live generation progress updates
+28. **`preview_stream`** - Low-resolution preview streaming
+29. **`queue_priority`** - Manage generation priority
+30. **`cancel_generation`** - Stop in-progress tasks
+
+#### System & Status (5 tools)
+31. **`get_server_info`** - Get server version, URL, and available models
+32. **`health_check`** - Verify ComfyUI connectivity and response time
+33. **`get_system_stats`** - Monitor GPU/CPU/memory usage and performance
+34. **`get_queue_status`** - Check running and pending generation jobs
+35. **`clear_comfyui_cache`** - Free up VRAM by clearing model cache
+
+#### Discovery & Validation (4 tools)
+36. **`list_workflows`** - List all available workflow JSON files
+37. **`list_models`** - List models by type (checkpoints, LoRAs, VAE, etc.)
+38. **`get_node_info`** - Explore available ComfyUI nodes and their parameters
+39. **`validate_workflow`** - Validate workflow compatibility before use
+
+#### Output Management (4 tools)
+40. **`get_recent_images`** - Retrieve recently generated images with metadata
+41. **`get_image_metadata`** - Extract generation parameters from images
+42. **`cleanup_old_images`** - Remove old images (with dry-run safety option)
+43. **`get_generation_status`** - Check generation progress (placeholder)
 
 ## Quick Start
 
@@ -170,21 +237,51 @@ Once configured, you can ask Claude to:
 - "Create a cyberpunk city scene at 1024x768"
 - "Make a portrait with seed 12345 for consistency"
 
-**Batch & Variations:**
-- "Generate 5 different fantasy landscapes"
-- "Create variations of 'a cat' with different styles: realistic, cartoon, oil painting"
+**Video Generation:**
+- "Generate a video of waves crashing on a beach"
+- "Animate this image with a zoom-in effect"
+- "Create a smooth transition between these two images"
+
+**Advanced Control:**
+- "Generate an image using this pose reference with ControlNet"
+- "Remove the person from this photo and fill with background"
+- "Extend this image 256 pixels to the right"
+- "Apply the style of Van Gogh to this photo"
+
+**Enhancement:**
+- "Upscale this image 4x with face enhancement"
+- "Remove the background from this product photo"
+- "Fix the faces in this old photograph"
+- "Auto-correct the colors and white balance"
+
+**Creative Tools:**
+- "Blend these three images with soft light mode"
+- "Apply anime and cyberpunk LoRA styles to this prompt"
+- "Generate a cat in the red area and a dog in the blue area"
+
+**Smart Features:**
+- "Improve this prompt for better results"
+- "What objects are in this image?"
+- "Compare the quality of these two images"
+- "How long will it take to generate a 4K image with 50 steps?"
+
+**Automation:**
+- "Create an animation morphing through: sunrise, noon, sunset, night"
+- "Apply this oil painting style to all images in the batch"
+- "Progressively upscale this image to 8x resolution"
+- "Use the portrait template with my custom settings"
+
+**Real-time Control:**
+- "Show me live progress of the current generation"
+- "Stream previews every 5 steps"
+- "Set this job to high priority"
+- "Cancel the current generation"
 
 **System Management:**
 - "Check if ComfyUI is running"
 - "Show me the GPU memory usage"
 - "List all available Stable Diffusion models"
 - "Clean up images older than 7 days (dry run first)"
-
-**Discovery:**
-- "What workflows are available?"
-- "Show me recent images generated"
-- "Get metadata from the last generated image"
-- "List all LoRA models"
 
 ### Standalone Testing
 
@@ -343,7 +440,17 @@ Contributions are welcome!
 
 ## Changelog
 
-### v1.2.0 (Latest)
+### v2.0.0 (Latest) - MAJOR UPDATE
+- 🎬 Added complete video generation suite (text-to-video, image animation, interpolation)
+- 🎨 Implemented advanced image control (ControlNet, inpainting, outpainting, style transfer)
+- 🔧 Added professional enhancement tools (upscaling, face restoration, background removal)
+- 🎯 Introduced creative tools (blending, LoRA styling, region control)
+- 📊 Built smart analysis features (prompt enhancement, object detection, comparison)
+- 🔄 Created workflow automation (animation sequences, batch processing, templates)
+- ⚡ Added real-time features (WebSocket progress, preview streaming, queue management)
+- 📈 Expanded from 16 to 46 total tools
+
+### v1.2.0
 - 🔧 Fixed critical MCP connection issues by migrating to stdio protocol
 - ➕ Added 11 new tools (16 total) for comprehensive ComfyUI control
 - 📦 Added proper dependency management with requirements.txt
