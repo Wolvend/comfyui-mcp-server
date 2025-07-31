@@ -28,9 +28,11 @@ def setup_virtual_environment():
         if not run_command("python -m venv mcp_venv", "Creating virtual environment"):
             return False
     
-    # Activate and install requirements
-    activate_cmd = "source mcp_venv/bin/activate" if os.name != 'nt' else "mcp_venv\\Scripts\\activate"
-    pip_cmd = f"{activate_cmd} && pip install -r requirements.txt"
+    # Install requirements using python -m pip to avoid shell activation issues
+    if os.name == 'nt':  # Windows
+        pip_cmd = "mcp_venv\\Scripts\\python -m pip install -r requirements.txt"
+    else:  # Unix/Linux/macOS
+        pip_cmd = "./mcp_venv/bin/python -m pip install -r requirements.txt"
     
     return run_command(pip_cmd, "Installing dependencies")
 
@@ -55,8 +57,8 @@ def setup_mcp_config():
     mcp_config = {
         "mcpServers": {
             "comfyui": {
-                "command": "bash",
-                "args": ["-c", f"cd {Path.cwd()} && source mcp_venv/bin/activate && python server.py"],
+                "command": str(Path.cwd() / "mcp_venv" / "bin" / "python") if os.name != 'nt' else str(Path.cwd() / "mcp_venv" / "Scripts" / "python"),
+                "args": [str(Path.cwd() / "server.py")],
                 "env": {
                     "COMFYUI_URL": "http://localhost:8188"
                 }
@@ -106,7 +108,11 @@ def check_comfyui():
 def test_server():
     """Test the MCP server startup"""
     print("🔧 Testing MCP server startup...")
-    test_cmd = "source mcp_venv/bin/activate && timeout 10 python server.py"
+    if os.name == 'nt':  # Windows
+        test_cmd = f"timeout 10 {Path.cwd() / 'mcp_venv' / 'Scripts' / 'python'} server.py"
+    else:  # Unix/Linux/macOS
+        test_cmd = f"timeout 10 {Path.cwd() / 'mcp_venv' / 'bin' / 'python'} server.py"
+    
     if run_command(test_cmd, "Testing server startup"):
         print("✅ Server starts successfully")
         return True

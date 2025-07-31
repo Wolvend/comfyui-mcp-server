@@ -7,12 +7,12 @@
 Ask Claude: "Generate an image of a cyberpunk city at night"
 ```
 
-### Advanced ControlNet
+### Advanced ControlNet Support
 ```
 Ask Claude: "Use ControlNet to generate an image with this pose reference image, prompt: 'a warrior in medieval armor'"
 ```
 
-### Image Enhancement
+### Image Enhancement & Upscaling
 ```
 Ask Claude: "Upscale this image 4x using ESRGAN"
 ```
@@ -29,7 +29,7 @@ Ask Claude: "Generate 5 variations of 'a fantasy landscape' with different moods
 Ask Claude: "Apply Van Gogh's starry night style to this photograph"
 ```
 
-### Inpainting
+### Inpainting Support
 ```
 Ask Claude: "Remove the person from this image and fill with appropriate background"
 ```
@@ -107,7 +107,7 @@ Ask Claude: "Clear ComfyUI cache to free up VRAM"
 | Performance Monitoring | ✅ | "Show system metrics" |
 | Custom Node Detection | ✅ | "What extensions are installed?" |
 
-## 🎬 Video Examples (Framework Ready)
+## 🎬 Video Generation Examples  
 ```
 Ask Claude: "Generate a 3-second video of ocean waves"
 ```

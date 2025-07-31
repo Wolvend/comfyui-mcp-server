@@ -2264,10 +2264,12 @@ def get_performance_metrics() -> Dict[str, Any]:
         }
         
     except ImportError:
+        import threading
         return {
             "error": "psutil not installed - install with: pip install psutil",
             "basic_metrics": {
                 "server_version": "2.0.0",
+                "uptime_seconds": time.time() - startup_time if 'startup_time' in globals() else None,
                 "active_threads": threading.active_count()
             }
         }
