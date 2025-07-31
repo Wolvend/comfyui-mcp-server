@@ -2,23 +2,34 @@
 
 A powerful Python-based MCP (Model Context Protocol) server that interfaces with [ComfyUI](https://github.com/comfyanonymous/ComfyUI) to enable AI agents like Claude to generate images through natural language commands.
 
-## 🚀 What's New
+## 🚀 What's New (v1.2.0)
 
-This server has been upgraded to use the **standard MCP stdio protocol** instead of WebSocket, providing:
-- ✅ Full compatibility with Claude Desktop and other MCP clients
+### Major Protocol Fix
+- 🔧 **Fixed MCP Connection Issues**: Migrated from WebSocket to proper MCP stdio protocol
+- ✅ **Full Claude Desktop Compatibility**: Now works seamlessly with Claude Desktop
+- 🚨 **Resolved "Failed to reconnect" errors**
+
+### New Tools Added (11 new, 16 total)
+- 📸 **Image Management**: `get_recent_images`, `get_image_metadata`, `cleanup_old_images`
+- 🎨 **Advanced Generation**: `batch_generate`, `generate_variations`
+- 📊 **System Monitoring**: `get_system_stats`, `get_queue_status`, `clear_comfyui_cache`
+- 🔍 **Discovery**: `list_models`, `get_node_info`, `validate_workflow`
+
+### Enhancements
 - ✅ Enhanced error handling and validation
 - ✅ Extended parameter support for fine-tuned control
-- ✅ Multiple utility tools beyond image generation
-- ✅ Environment-based configuration
+- ✅ Proper dependency management with `requirements.txt`
+- ✅ Multi-user Git configuration support
 
 ## Overview
 
-This MCP server allows AI assistants to:
-- Generate images using ComfyUI workflows
-- Query server status and available models
-- List available workflows
-- Check ComfyUI health status
-- Support extensive customization options
+This MCP server provides a comprehensive interface for AI assistants to:
+- 🎨 **Generate images** using ComfyUI workflows with extensive customization
+- 📊 **Monitor system** resources, queue status, and server health
+- 🗂️ **Manage outputs** including metadata extraction and cleanup
+- 🔍 **Discover capabilities** by listing models, nodes, and workflows
+- ⚡ **Batch operations** for efficient multi-image generation
+- 🎯 **Validate workflows** before execution
 
 ## Features
 
@@ -36,24 +47,45 @@ This MCP server allows AI assistants to:
   - Denoising strength
   - Negative prompts
 
-### 🛠️ Available MCP Tools
+### 🛠️ Available MCP Tools (16 Total)
 
-1. **`generate_image`** - Generate images with extensive customization
-2. **`get_server_info`** - Get server version and available models
-3. **`list_workflows`** - List available workflow files
-4. **`health_check`** - Check ComfyUI connectivity
-5. **`get_generation_status`** - Check generation progress (placeholder)
-6. **`get_recent_images`** - Get recently generated images from output directory
-7. **`list_models`** - List all available models by type (checkpoints, loras, vae, etc.)
-8. **`get_system_stats`** - Get ComfyUI system statistics including GPU/CPU/memory usage
-9. **`get_queue_status`** - Get the current ComfyUI queue status and pending jobs
-10. **`batch_generate`** - Generate multiple images with different prompts in batch
-11. **`validate_workflow`** - Validate a workflow file before using it
-12. **`get_image_metadata`** - Extract metadata from generated images including prompts
-13. **`cleanup_old_images`** - Remove generated images older than specified days
-14. **`get_node_info`** - Get detailed information about available ComfyUI nodes
-15. **`generate_variations`** - Generate variations of an image by modifying the prompt
-16. **`clear_comfyui_cache`** - Clear ComfyUI's model cache to free up memory
+#### Core Generation
+1. **`generate_image`** - Generate images with extensive customization options
+2. **`batch_generate`** - Generate multiple images with different prompts efficiently
+3. **`generate_variations`** - Create variations by modifying prompts
+
+#### System & Status
+4. **`get_server_info`** - Get server version, URL, and available models
+5. **`health_check`** - Verify ComfyUI connectivity and response time
+6. **`get_system_stats`** - Monitor GPU/CPU/memory usage and performance
+7. **`get_queue_status`** - Check running and pending generation jobs
+8. **`clear_comfyui_cache`** - Free up VRAM by clearing model cache
+
+#### Discovery & Validation
+9. **`list_workflows`** - List all available workflow JSON files
+10. **`list_models`** - List models by type (checkpoints, LoRAs, VAE, etc.)
+11. **`get_node_info`** - Explore available ComfyUI nodes and their parameters
+12. **`validate_workflow`** - Validate workflow compatibility before use
+
+#### Output Management
+13. **`get_recent_images`** - Retrieve recently generated images with metadata
+14. **`get_image_metadata`** - Extract generation parameters from images
+15. **`cleanup_old_images`** - Remove old images (with dry-run safety option)
+16. **`get_generation_status`** - Check generation progress (placeholder)
+
+## Quick Start
+
+```bash
+# Clone and setup
+git clone https://github.com/Wolvend/comfyui-mcp-server.git
+cd comfyui-mcp-server
+python -m venv mcp_venv
+source mcp_venv/bin/activate
+pip install -r requirements.txt
+
+# Configure Claude Desktop (see Installation section)
+# Start ComfyUI, then ask Claude to generate images!
+```
 
 ## Prerequisites
 
@@ -132,10 +164,27 @@ Place workflow JSON files in the `workflows/` directory:
 ### With Claude Desktop
 
 Once configured, you can ask Claude to:
+
+**Basic Generation:**
 - "Generate an image of a sunset over mountains"
 - "Create a cyberpunk city scene at 1024x768"
-- "Show me what workflows are available"
+- "Make a portrait with seed 12345 for consistency"
+
+**Batch & Variations:**
+- "Generate 5 different fantasy landscapes"
+- "Create variations of 'a cat' with different styles: realistic, cartoon, oil painting"
+
+**System Management:**
 - "Check if ComfyUI is running"
+- "Show me the GPU memory usage"
+- "List all available Stable Diffusion models"
+- "Clean up images older than 7 days (dry run first)"
+
+**Discovery:**
+- "What workflows are available?"
+- "Show me recent images generated"
+- "Get metadata from the last generated image"
+- "List all LoRA models"
 
 ### Standalone Testing
 
@@ -175,16 +224,24 @@ comfyui-mcp-server/
 
 ### Common Issues
 
-1. **"No models available"**
-   - Download model files (e.g., SD 1.5) to `ComfyUI/models/checkpoints/`
+1. **"Failed to reconnect to comfyui" (FIXED in v1.2.0)**
+   - This was due to WebSocket protocol - now uses proper MCP stdio
 
-2. **"Failed to connect to ComfyUI"**
-   - Ensure ComfyUI is running on the configured port
+2. **"No models available"**
+   - Download model files (e.g., SD 1.5) to `ComfyUI/models/checkpoints/`
+   - Use `list_models` tool to see what's available
+
+3. **"Failed to connect to ComfyUI"**
+   - Ensure ComfyUI is running: `python main.py --listen 0.0.0.0`
    - Check firewall settings
    - Verify COMFYUI_URL environment variable
 
-3. **"Width/height must be divisible by 8"**
+4. **"Width/height must be divisible by 8"**
    - Use dimensions like 512, 768, 1024, etc.
+
+5. **Memory Issues**
+   - Use `clear_comfyui_cache` to free up VRAM
+   - Check usage with `get_system_stats`
 
 ### Debug Mode
 
@@ -209,8 +266,9 @@ Use the included helper scripts:
 
 ## API Reference
 
-### generate_image
+### Core Generation Tools
 
+#### generate_image
 ```python
 generate_image(
     prompt: str,                    # Required
@@ -218,24 +276,83 @@ generate_image(
     height: int = 512,             # Optional
     workflow_id: str = "basic_api_test",  # Optional
     model: str = None,             # Optional
-    seed: int = None,              # Optional
-    steps: int = None,             # Optional
-    cfg_scale: float = None,       # Optional
-    sampler_name: str = None,      # Optional
-    scheduler: str = None,         # Optional
-    denoise: float = None,         # Optional
+    seed: int = None,              # Optional (-1 for random)
+    steps: int = None,             # Optional (1-150)
+    cfg_scale: float = None,       # Optional (0-30)
+    sampler_name: str = None,      # Optional (euler, dpm_2, ddim, etc.)
+    scheduler: str = None,         # Optional (normal, karras, exponential)
+    denoise: float = None,         # Optional (0.0-1.0)
     negative_prompt: str = None    # Optional
+)
+```
+
+#### batch_generate
+```python
+batch_generate(
+    prompts: List[str],            # Required (max 10)
+    width: int = 512,              # Optional
+    height: int = 512,             # Optional
+    seed_increment: bool = True,   # Optional
+    base_seed: int = None,         # Optional
+    **kwargs                       # Other generate_image parameters
+)
+```
+
+#### generate_variations
+```python
+generate_variations(
+    base_prompt: str,              # Required
+    variations: List[str],         # Required (max 8)
+    width: int = 512,              # Optional
+    height: int = 512,             # Optional
+    base_seed: int = None,         # Optional (fixed for comparison)
+    **kwargs                       # Other parameters
+)
+```
+
+### System Tools
+
+#### get_system_stats
+Returns GPU/CPU usage, VRAM info, and system performance metrics.
+
+#### cleanup_old_images
+```python
+cleanup_old_images(
+    days_old: int = 7,             # Images older than N days
+    dry_run: bool = True           # Preview without deleting
 )
 ```
 
 ## Contributing
 
-Contributions are welcome! Areas for improvement:
-- Progress tracking implementation
-- Batch generation support
+Contributions are welcome! 
+
+### Recently Completed ✅
+- Fixed MCP connection issues (WebSocket → stdio)
+- Added batch generation support
+- Implemented 11 new tools for comprehensive functionality
+- Added system monitoring and management tools
+
+### Future Improvements
+- Real-time progress tracking implementation
 - Image-to-image workflows
 - ControlNet support
 - Animation/video generation
+- Custom node integration
+- Workflow templates library
+
+## Changelog
+
+### v1.2.0 (Latest)
+- 🔧 Fixed critical MCP connection issues by migrating to stdio protocol
+- ➕ Added 11 new tools (16 total) for comprehensive ComfyUI control
+- 📦 Added proper dependency management with requirements.txt
+- 📝 Enhanced documentation and examples
+- 🐛 Fixed "Failed to reconnect" errors
+
+### v1.0.0
+- Initial release with WebSocket implementation
+- Basic image generation support
 
 ## License
 
@@ -246,6 +363,7 @@ Apache License 2.0 - See LICENSE file for details
 - Original WebSocket implementation by [joenorton](https://github.com/joenorton/comfyui-mcp-server)
 - Built for [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
 - Uses [Anthropic's MCP SDK](https://github.com/anthropics/mcp)
+- Special thanks to the ComfyUI community
 
 ---
 
