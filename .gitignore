@@ -38,6 +38,11 @@ logs/
 
 # Test files
 test_*.py
+verify_*.py
+
+# Backup files
+*.backup
+*.bak
 
 # Temporary files
 *.tmp

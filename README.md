@@ -43,6 +43,17 @@ This MCP server allows AI assistants to:
 3. **`list_workflows`** - List available workflow files
 4. **`health_check`** - Check ComfyUI connectivity
 5. **`get_generation_status`** - Check generation progress (placeholder)
+6. **`get_recent_images`** - Get recently generated images from output directory
+7. **`list_models`** - List all available models by type (checkpoints, loras, vae, etc.)
+8. **`get_system_stats`** - Get ComfyUI system statistics including GPU/CPU/memory usage
+9. **`get_queue_status`** - Get the current ComfyUI queue status and pending jobs
+10. **`batch_generate`** - Generate multiple images with different prompts in batch
+11. **`validate_workflow`** - Validate a workflow file before using it
+12. **`get_image_metadata`** - Extract metadata from generated images including prompts
+13. **`cleanup_old_images`** - Remove generated images older than specified days
+14. **`get_node_info`** - Get detailed information about available ComfyUI nodes
+15. **`generate_variations`** - Generate variations of an image by modifying the prompt
+16. **`clear_comfyui_cache`** - Clear ComfyUI's model cache to free up memory
 
 ## Prerequisites
 
@@ -66,7 +77,12 @@ source mcp_venv/bin/activate  # On Windows: mcp_venv\Scripts\activate
 
 ### 3. Install Dependencies
 ```bash
-pip install requests mcp
+pip install -r requirements.txt
+```
+
+Or manually install:
+```bash
+pip install requests mcp Pillow
 ```
 
 ### 4. Configure MCP for Claude
