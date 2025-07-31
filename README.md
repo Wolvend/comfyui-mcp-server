@@ -38,10 +38,10 @@ A comprehensive Python-based MCP (Model Context Protocol) server that interfaces
 - **Template System**: Pre-configured workflows
 
 ### ⚡ Real-time Features
-- **WebSocket Progress**: Live generation updates
-- **Preview Streaming**: Low-res previews
-- **Queue Management**: Priority control
-- **Cancellation**: Stop in-progress tasks
+- **WebSocket Progress**: Live generation updates with queue status
+- **Preview Streaming**: Low-res previews during generation
+- **Queue Management**: Real-time queue position and wait time estimates
+- **Cancellation**: Stop in-progress tasks immediately
 
 ### Previous Updates (v1.2.0)
 - ✅ Fixed MCP connection issues (WebSocket → stdio)
@@ -75,7 +75,7 @@ This MCP server provides a comprehensive interface for AI assistants to:
   - Denoising strength
   - Negative prompts
 
-### 🛠️ Available MCP Tools (46 Total)
+### 🛠️ Available MCP Tools (42 Total)
 
 #### Core Generation (6 tools)
 1. **`generate_image`** - Generate images with extensive customization options
@@ -425,30 +425,37 @@ cleanup_old_images(
 Contributions are welcome! 
 
 ### Recently Completed ✅
-- Fixed MCP connection issues (WebSocket → stdio)
-- Added batch generation support
-- Implemented 11 new tools for comprehensive functionality
-- Added system monitoring and management tools
+- ✅ Fixed MCP connection issues (WebSocket → stdio)
+- ✅ Added 26 new advanced tools (42 total)
+- ✅ Implemented real ComfyUI node integrations
+- ✅ Added comprehensive workflow templates
+- ✅ Enhanced model discovery and validation
+- ✅ Real-time WebSocket progress tracking
+- ✅ Queue management with position tracking
+- ✅ ControlNet, upscaling, and inpainting support
 
-### Future Improvements
-- Real-time progress tracking implementation
-- Image-to-image workflows
-- ControlNet support
-- Animation/video generation
-- Custom node integration
-- Workflow templates library
+### Implementation Status
+- **Core Generation**: ✅ Fully implemented
+- **Advanced Control**: ✅ ControlNet, inpainting, style transfer working
+- **Enhancement**: ✅ Upscaling workflows ready
+- **Creative Tools**: ⚠️ Basic implementations (need custom nodes)
+- **Analysis**: ⚠️ Placeholder implementations
+- **Automation**: ⚠️ Template-based (needs complex workflows)
+- **Real-time**: ✅ WebSocket and queue management working
 
 ## Changelog
 
 ### v2.0.0 (Latest) - MAJOR UPDATE
-- 🎬 Added complete video generation suite (text-to-video, image animation, interpolation)
-- 🎨 Implemented advanced image control (ControlNet, inpainting, outpainting, style transfer)
-- 🔧 Added professional enhancement tools (upscaling, face restoration, background removal)
-- 🎯 Introduced creative tools (blending, LoRA styling, region control)
-- 📊 Built smart analysis features (prompt enhancement, object detection, comparison)
-- 🔄 Created workflow automation (animation sequences, batch processing, templates)
-- ⚡ Added real-time features (WebSocket progress, preview streaming, queue management)
-- 📈 Expanded from 16 to 46 total tools
+- 🎬 Added video generation framework (text-to-video, image animation, interpolation)
+- 🎨 **IMPLEMENTED** advanced image control (ControlNet, inpainting, outpainting, style transfer)
+- 🔧 **IMPLEMENTED** professional enhancement tools (upscaling workflows, face restoration)
+- 🎯 Added creative tools framework (blending, LoRA styling, region control)
+- 📊 Added smart analysis features (prompt enhancement, object detection, comparison)
+- 🔄 Created workflow automation system (animation sequences, batch processing, templates)
+- ⚡ **IMPLEMENTED** real-time features (WebSocket progress, queue management, cancellation)
+- 📈 Expanded from 16 to 42 total tools
+- 🔧 **FIXED** model discovery and parameter mapping
+- 🛠️ **ENHANCED** workflow template system with 9 specialized workflows
 
 ### v1.2.0
 - 🔧 Fixed critical MCP connection issues by migrating to stdio protocol

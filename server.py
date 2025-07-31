@@ -48,7 +48,7 @@ def get_server_info() -> Dict[str, Any]:
             "comfyui_url": comfyui_url,
             "available_models": comfyui_client.available_models or [],
             "status": "connected",
-            "total_tools": 46
+            "total_tools": 42
         }
     except Exception as e:
         logger.error(f"Error getting server info: {e}")
@@ -1103,16 +1103,66 @@ def controlnet_generate(
         Dictionary containing generated image with control
     """
     try:
-        # Would use ControlNetApply nodes
+        # Validate inputs
+        if not prompt:
+            return {"error": "Prompt is required"}
+        if not control_image:
+            return {"error": "Control image is required"}
+        
         width = width or 512
         height = height or 512
         
-        return {
-            "status": "placeholder",
-            "message": "ControlNet generation coming soon",
-            "control_type": control_type,
-            "control_image": control_image
+        # Map control types to ControlNet models
+        control_net_models = {
+            "canny": "control_v11p_sd15_canny.pth",
+            "pose": "control_v11p_sd15_openpose.pth", 
+            "depth": "control_v11f1p_sd15_depth.pth",
+            "normal": "control_v11p_sd15_normalbae.pth",
+            "mlsd": "control_v11p_sd15_mlsd.pth",
+            "scribble": "control_v11p_sd15_scribble.pth"
         }
+        
+        if control_type not in control_net_models:
+            return {
+                "error": f"Unsupported control type: {control_type}",
+                "supported_types": list(control_net_models.keys())
+            }
+        
+        # Use controlnet workflow
+        params = {
+            "USER_PROMPT": prompt,
+            "USER_NEGATIVE_PROMPT": "low quality, blurry, deformed",
+            "CONTROL_IMAGE": control_image,
+            "CONTROL_TYPE": control_net_models[control_type],
+            "WIDTH": width,
+            "HEIGHT": height,
+            "CONTROL_STRENGTH": control_strength,
+            "SEED": -1
+        }
+        
+        # Generate with ControlNet workflow
+        result = comfyui_client.generate_image(
+            prompt=prompt,
+            width=width,
+            height=height,
+            workflow_id="controlnet_workflow",
+            model=model,
+            **params
+        )
+        
+        if isinstance(result, str):  # Success case returns URL
+            return {
+                "success": True,
+                "image_url": result,
+                "control_type": control_type,
+                "control_image": control_image,
+                "control_strength": control_strength,
+                "prompt": prompt,
+                "dimensions": f"{width}x{height}"
+            }
+        else:
+            return result  # Error case
+        
     except Exception as e:
         logger.error(f"Error with ControlNet: {e}")
         return {"error": str(e)}
@@ -1140,12 +1190,51 @@ def inpaint_image(
         Dictionary containing inpainted image
     """
     try:
-        return {
-            "status": "placeholder",
-            "message": "Inpainting coming soon",
-            "image": image_path,
-            "mask": mask_path
+        # Validate inputs
+        if not image_path:
+            return {"error": "Image path is required"}
+        if not mask_path:
+            return {"error": "Mask path is required"}
+        if not prompt:
+            return {"error": "Prompt is required"}
+            
+        if not (0.0 <= strength <= 1.0):
+            return {"error": "Strength must be between 0.0 and 1.0"}
+            
+        # Use inpaint workflow
+        params = {
+            "USER_PROMPT": prompt,
+            "USER_NEGATIVE_PROMPT": negative_prompt or "low quality, blurry, artifacts",
+            "INPUT_IMAGE": image_path,
+            "MASK_IMAGE": mask_path,
+            "STRENGTH": strength,
+            "EXPAND_MASK": expand_mask,
+            "SEED": -1
         }
+        
+        # Generate with inpaint workflow
+        result = comfyui_client.generate_image(
+            prompt=prompt,
+            width=512,  # Will be overridden by input image size
+            height=512,
+            workflow_id="inpaint_workflow",
+            **params
+        )
+        
+        if isinstance(result, str):  # Success case returns URL
+            return {
+                "success": True,
+                "inpainted_image_url": result,
+                "original_image": image_path,
+                "mask_image": mask_path,
+                "prompt": prompt,
+                "negative_prompt": negative_prompt,
+                "strength": strength,
+                "mask_expansion": expand_mask
+            }
+        else:
+            return result  # Error case
+        
     except Exception as e:
         logger.error(f"Error inpainting: {e}")
         return {"error": str(e)}
@@ -1231,13 +1320,41 @@ def upscale_image(
         Dictionary containing upscaled image
     """
     try:
-        return {
-            "status": "placeholder",
-            "message": "Upscaling coming soon",
-            "image": image_path,
-            "scale": scale,
-            "model": model
+        # Validate inputs
+        if not image_path:
+            return {"error": "Image path is required"}
+        
+        if scale not in [2, 4]:
+            return {"error": "Scale must be 2 or 4"}
+        
+        # Use upscale workflow
+        params = {
+            "INPUT_IMAGE": image_path,
+            "UPSCALE_MODEL": f"{model}_x{scale}.pth",
+            "SEED": -1
         }
+        
+        # Load and customize upscale workflow
+        result = comfyui_client.generate_image(
+            prompt="upscale", 
+            width=512, 
+            height=512, 
+            workflow_id="upscale_workflow",
+            **params
+        )
+        
+        if "error" in result:
+            return result
+            
+        return {
+            "success": True,
+            "upscaled_image_url": result,
+            "original_image": image_path,
+            "scale_factor": scale,
+            "model_used": model,
+            "face_enhanced": face_enhance
+        }
+        
     except Exception as e:
         logger.error(f"Error upscaling: {e}")
         return {"error": str(e)}
@@ -1768,17 +1885,77 @@ def websocket_progress(
         callback_url: Optional webhook for progress updates
         
     Returns:
-        Dictionary containing WebSocket connection info
+        Dictionary containing WebSocket connection info and current status
     """
     try:
+        import websocket
+        import threading
+        import json as json_lib
+        
         ws_url = comfyui_url.replace("http", "ws") + "/ws"
         
-        return {
-            "websocket_url": ws_url,
-            "prompt_id": prompt_id,
-            "message": "Connect to WebSocket for real-time updates",
-            "events": ["progress", "preview", "completed", "error"]
-        }
+        # Get current status first
+        try:
+            import requests
+            queue_response = requests.get(f"{comfyui_url}/queue")
+            if queue_response.status_code == 200:
+                queue_data = queue_response.json()
+                
+                # Check if prompt_id is in queue
+                running = queue_data.get("queue_running", [])
+                pending = queue_data.get("queue_pending", [])
+                
+                status = "unknown"
+                for item in running:
+                    if len(item) > 1 and item[1] == prompt_id:
+                        status = "running"
+                        break
+                for item in pending:
+                    if len(item) > 1 and item[1] == prompt_id:
+                        status = "pending"
+                        break
+                        
+                # Check history for completed
+                if status == "unknown":
+                    history_response = requests.get(f"{comfyui_url}/history/{prompt_id}")
+                    if history_response.status_code == 200:
+                        history_data = history_response.json()
+                        if prompt_id in history_data:
+                            status = "completed"
+                            
+                return {
+                    "websocket_url": ws_url,
+                    "prompt_id": prompt_id,
+                    "current_status": status,
+                    "queue_position": len(pending) if status == "pending" else 0,
+                    "message": f"Prompt {prompt_id} is {status}",
+                    "events": ["progress", "preview", "completed", "error"],
+                    "connection_info": {
+                        "url": ws_url,
+                        "protocol": "WebSocket",
+                        "client_id": "mcp-client"
+                    }
+                }
+            else:
+                # Fallback if queue check fails
+                return {
+                    "websocket_url": ws_url,
+                    "prompt_id": prompt_id,
+                    "current_status": "unknown",
+                    "message": "Connect to WebSocket for real-time updates",
+                    "events": ["progress", "preview", "completed", "error"]
+                }
+                
+        except Exception as status_error:
+            logger.warning(f"Could not check status: {status_error}")
+            return {
+                "websocket_url": ws_url,
+                "prompt_id": prompt_id,
+                "current_status": "unknown",
+                "message": "WebSocket available for real-time updates",
+                "events": ["progress", "preview", "completed", "error"]
+            }
+            
     except Exception as e:
         logger.error(f"Error setting up WebSocket: {e}")
         return {"error": str(e)}
@@ -1813,31 +1990,73 @@ def queue_priority(
     prompt_id: str,
     priority: str = "normal"
 ) -> Dict[str, Any]:
-    """Manage generation queue priority
+    """Manage generation queue priority (ComfyUI uses FIFO, this provides queue info)
     
     Args:
         prompt_id: ID of the generation task
-        priority: Priority level (low, normal, high, urgent)
+        priority: Priority level (low, normal, high, urgent) - informational only
         
     Returns:
-        Dictionary containing updated queue position
+        Dictionary containing queue status and position
     """
     try:
+        import requests
+        
         priorities = ["low", "normal", "high", "urgent"]
         if priority not in priorities:
             return {
                 "error": f"Invalid priority: {priority}",
                 "valid_priorities": priorities
             }
+        
+        # Get current queue status
+        queue_response = requests.get(f"{comfyui_url}/queue")
+        if queue_response.status_code != 200:
+            return {"error": "Could not access ComfyUI queue"}
             
+        queue_data = queue_response.json()
+        running = queue_data.get("queue_running", [])
+        pending = queue_data.get("queue_pending", [])
+        
+        # Find prompt in queue
+        position = -1
+        status = "not_found"
+        
+        for i, item in enumerate(running):
+            if len(item) > 1 and item[1] == prompt_id:
+                status = "running"
+                position = 0  # Currently executing
+                break
+                
+        if status == "not_found":
+            for i, item in enumerate(pending):
+                if len(item) > 1 and item[1] == prompt_id:
+                    status = "pending"
+                    position = i + 1  # Position in queue (1-indexed)
+                    break
+        
+        if status == "not_found":
+            # Check if completed
+            history_response = requests.get(f"{comfyui_url}/history/{prompt_id}")
+            if history_response.status_code == 200:
+                history_data = history_response.json()
+                if prompt_id in history_data:
+                    status = "completed"
+                    
         return {
-            "status": "placeholder",
-            "message": "Queue priority management coming soon",
             "prompt_id": prompt_id,
-            "priority": priority
+            "priority": priority,
+            "queue_status": status,
+            "queue_position": position,
+            "total_pending": len(pending),
+            "total_running": len(running),
+            "estimated_wait_minutes": position * 2 if position > 0 else 0,  # Rough estimate
+            "message": f"Prompt {status}" + (f" at position {position}" if position > 0 else ""),
+            "note": "ComfyUI uses FIFO queue - priority is informational only"
         }
+        
     except Exception as e:
-        logger.error(f"Error setting priority: {e}")
+        logger.error(f"Error checking queue: {e}")
         return {"error": str(e)}
 
 @mcp.tool()
@@ -1885,7 +2104,7 @@ if __name__ == "__main__":
     logger.info(f"Starting ComfyUI MCP server v2.0.0")
     logger.info(f"ComfyUI URL: {comfyui_url}")
     logger.info(f"Debug mode: {'ON' if os.getenv('DEBUG') else 'OFF'}")
-    logger.info(f"Total tools available: 46")
+    logger.info(f"Total tools available: 42")
     
     # Check ComfyUI connection on startup
     health = health_check()

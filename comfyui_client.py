@@ -13,6 +13,43 @@ DEFAULT_MAPPING = {
     "model": ("4", "ckpt_name")
 }
 
+# Workflow-specific parameter mappings
+WORKFLOW_MAPPINGS = {
+    "basic_api_test": DEFAULT_MAPPING,
+    "controlnet_workflow": {
+        "USER_PROMPT": ("2", "text"),
+        "USER_NEGATIVE_PROMPT": ("3", "text"),
+        "CONTROL_IMAGE": ("4", "image"),
+        "CONTROL_TYPE": ("5", "control_net_name"),
+        "WIDTH": ("7", "width"),
+        "HEIGHT": ("7", "height"),
+        "CONTROL_STRENGTH": ("6", "strength"),
+        "SEED": ("8", "seed")
+    },
+    "upscale_workflow": {
+        "INPUT_IMAGE": ("1", "image"),
+        "UPSCALE_MODEL": ("2", "model_name"),
+        "SEED": ("4", "seed")
+    },
+    "inpaint_workflow": {
+        "USER_PROMPT": ("2", "text"),
+        "USER_NEGATIVE_PROMPT": ("3", "text"),
+        "INPUT_IMAGE": ("4", "image"),
+        "MASK_IMAGE": ("5", "image"),
+        "EXPAND_MASK": ("6", "expand"),
+        "STRENGTH": ("8", "denoise"),
+        "SEED": ("8", "seed")
+    },
+    "video_gen_workflow": {
+        "USER_PROMPT": ("2", "text"),
+        "WIDTH": ("4", "width"),
+        "HEIGHT": ("4", "height"),
+        "FRAMES": ("4", "frames"),
+        "SEED": ("5", "seed"),
+        "FPS": ("7", "fps")
+    }
+}
+
 class ComfyUIClient:
     def __init__(self, base_url):
         self.base_url = base_url
@@ -27,10 +64,44 @@ class ComfyUIClient:
                 return []
             data = response.json()
             models = data["CheckpointLoaderSimple"]["input"]["required"]["ckpt_name"][0]
+            
+            # If no models found via API, try to detect from filesystem
+            if not models:
+                models = self._scan_model_directory()
+            
             logger.info(f"Available models: {models}")
             return models
         except Exception as e:
             logger.warning(f"Error fetching models: {e}")
+            return self._scan_model_directory()
+
+    def _scan_model_directory(self):
+        """Scan filesystem for model files as fallback"""
+        import os
+        from pathlib import Path
+        
+        try:
+            # Common ComfyUI model paths
+            possible_paths = [
+                "/home/wolvend/Desktop/ComfyUI/models/checkpoints",
+                "../../../models/checkpoints",
+                "./ComfyUI/models/checkpoints"
+            ]
+            
+            for path_str in possible_paths:
+                path = Path(path_str)
+                if path.exists():
+                    models = []
+                    for ext in ['.safetensors', '.ckpt', '.pth']:
+                        models.extend([f.name for f in path.glob(f'*{ext}')])
+                    if models:
+                        logger.info(f"Found models in {path}: {models}")
+                        return models
+            
+            logger.warning("No model files found in standard directories")
+            return []
+        except Exception as e:
+            logger.warning(f"Error scanning model directory: {e}")
             return []
 
     def generate_image(self, prompt, width, height, workflow_id="basic_api_test", model=None, **kwargs):
@@ -49,12 +120,21 @@ class ComfyUIClient:
                     raise Exception(f"Model '{model}' not in available models: {self.available_models}")
                 params["model"] = model
 
+            # Use workflow-specific mapping if available
+            mapping = WORKFLOW_MAPPINGS.get(workflow_id, DEFAULT_MAPPING)
+            
             for param_key, value in params.items():
-                if param_key in DEFAULT_MAPPING:
-                    node_id, input_key = DEFAULT_MAPPING[param_key]
+                if param_key in mapping:
+                    node_id, input_key = mapping[param_key]
                     if node_id not in workflow:
-                        raise Exception(f"Node {node_id} not found in workflow {workflow_id}")
+                        logger.warning(f"Node {node_id} not found in workflow {workflow_id}, skipping parameter {param_key}")
+                        continue
+                    if "inputs" not in workflow[node_id]:
+                        workflow[node_id]["inputs"] = {}
                     workflow[node_id]["inputs"][input_key] = value
+                    logger.debug(f"Set {workflow_id}[{node_id}][{input_key}] = {value}")
+                else:
+                    logger.debug(f"Parameter {param_key} not in mapping for {workflow_id}, passing as kwargs")
 
             logger.info(f"Submitting workflow {workflow_id} to ComfyUI...")
             response = requests.post(f"{self.base_url}/prompt", json={"prompt": workflow})
