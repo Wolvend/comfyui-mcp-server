@@ -104,7 +104,29 @@ class ComfyUIClient:
             logger.warning(f"Error scanning model directory: {e}")
             return []
 
-    def generate_image(self, prompt, width, height, workflow_id="basic_api_test", model=None, **kwargs):
+    def generate_image(self, prompt, width, height, workflow_id="basic_api_test", model=None, retry_count=3, **kwargs):
+        """Generate image with automatic retry on failure"""
+        last_error = None
+        
+        for attempt in range(retry_count):
+            try:
+                if attempt > 0:
+                    logger.info(f"Retry attempt {attempt + 1}/{retry_count}")
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                
+                return self._generate_image_attempt(prompt, width, height, workflow_id, model, **kwargs)
+                
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Attempt {attempt + 1} failed: {e}")
+                
+                if attempt == retry_count - 1:
+                    logger.error(f"All {retry_count} attempts failed. Last error: {e}")
+                    raise last_error
+                    
+        raise last_error
+    
+    def _generate_image_attempt(self, prompt, width, height, workflow_id="basic_api_test", model=None, **kwargs):
         try:
             workflow_file = f"workflows/{workflow_id}.json"
             with open(workflow_file, "r") as f:
@@ -144,21 +166,68 @@ class ComfyUIClient:
             prompt_id = response.json()["prompt_id"]
             logger.info(f"Queued workflow with prompt_id: {prompt_id}")
 
-            max_attempts = 30
-            for _ in range(max_attempts):
-                history = requests.get(f"{self.base_url}/history/{prompt_id}").json()
-                if history.get(prompt_id):
-                    outputs = history[prompt_id]["outputs"]
-                    logger.info("Workflow outputs: %s", json.dumps(outputs, indent=2))
-                    image_node = next((nid for nid, out in outputs.items() if "images" in out), None)
-                    if not image_node:
-                        raise Exception(f"No output node with images found: {outputs}")
-                    image_filename = outputs[image_node]["images"][0]["filename"]
-                    image_url = f"{self.base_url}/view?filename={image_filename}&subfolder=&type=output"
-                    logger.info(f"Generated image URL: {image_url}")
-                    return image_url
-                time.sleep(1)
-            raise Exception(f"Workflow {prompt_id} didn’t complete within {max_attempts} seconds")
+            max_attempts = 60  # Increased timeout
+            poll_interval = 1
+            
+            for attempt in range(max_attempts):
+                try:
+                    # Check queue first for better error messages
+                    queue_response = requests.get(f"{self.base_url}/queue", timeout=5)
+                    if queue_response.status_code == 200:
+                        queue_data = queue_response.json()
+                        running = queue_data.get("queue_running", [])
+                        pending = queue_data.get("queue_pending", [])
+                        
+                        # Check if prompt is still in queue
+                        in_queue = any(item[1] == prompt_id for item in running + pending if len(item) > 1)
+                        if not in_queue and attempt > 5:  # Allow some time for queue processing
+                            # Not in queue, check history
+                            pass
+                        elif in_queue:
+                            logger.debug(f"Prompt {prompt_id} still in queue (attempt {attempt + 1})")
+                    
+                    # Check history
+                    history_response = requests.get(f"{self.base_url}/history/{prompt_id}", timeout=10)
+                    if history_response.status_code != 200:
+                        logger.warning(f"History request failed: {history_response.status_code}")
+                        time.sleep(poll_interval)
+                        continue
+                        
+                    history = history_response.json()
+                    if history.get(prompt_id):
+                        history_data = history[prompt_id]
+                        
+                        # Check for errors in history
+                        if "status" in history_data and history_data["status"].get("status_str") == "error":
+                            error_messages = history_data["status"].get("messages", [])
+                            raise Exception(f"ComfyUI workflow error: {error_messages}")
+                        
+                        outputs = history_data.get("outputs", {})
+                        if outputs:
+                            logger.info("Workflow outputs: %s", json.dumps(outputs, indent=2))
+                            image_node = next((nid for nid, out in outputs.items() if "images" in out), None)
+                            if not image_node:
+                                raise Exception(f"No output node with images found: {outputs}")
+                            images = outputs[image_node]["images"]
+                            if not images:
+                                raise Exception("No images in output")
+                            image_filename = images[0]["filename"]
+                            image_url = f"{self.base_url}/view?filename={image_filename}&subfolder=&type=output"
+                            logger.info(f"Generated image URL: {image_url}")
+                            return image_url
+                        else:
+                            logger.debug(f"No outputs yet for {prompt_id} (attempt {attempt + 1})")
+                    
+                    time.sleep(poll_interval)
+                    
+                except requests.exceptions.Timeout:
+                    logger.warning(f"Request timeout on attempt {attempt + 1}")
+                    time.sleep(poll_interval * 2)
+                except requests.exceptions.RequestException as e:
+                    logger.warning(f"Request error on attempt {attempt + 1}: {e}")
+                    time.sleep(poll_interval * 2)
+                    
+            raise Exception(f"Workflow {prompt_id} didn't complete within {max_attempts} seconds")
 
         except FileNotFoundError:
             raise Exception(f"Workflow file '{workflow_file}' not found")

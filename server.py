@@ -4,11 +4,45 @@ import logging
 import os
 import sys
 import glob
+import time
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from pathlib import Path
+from functools import wraps
 from mcp.server.fastmcp import FastMCP
 from comfyui_client import ComfyUIClient
+
+# Performance monitoring decorator
+def monitor_performance(func):
+    """Decorator to monitor tool performance"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        tool_name = func.__name__
+        
+        try:
+            result = func(*args, **kwargs)
+            execution_time = time.time() - start_time
+            
+            # Log performance metrics
+            logger.info(f"PERF: {tool_name} completed in {execution_time:.2f}s")
+            
+            # Add performance info to result if it's a dict
+            if isinstance(result, dict) and "error" not in result:
+                result["_performance"] = {
+                    "execution_time_seconds": round(execution_time, 3),
+                    "tool_name": tool_name,
+                    "timestamp": datetime.now().isoformat()
+                }
+            
+            return result
+            
+        except Exception as e:
+            execution_time = time.time() - start_time
+            logger.error(f"PERF: {tool_name} failed after {execution_time:.2f}s - {e}")
+            raise
+            
+    return wrapper
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -82,6 +116,7 @@ def list_workflows() -> Dict[str, Any]:
         }
 
 @mcp.tool()
+@monitor_performance
 def generate_image(
     prompt: str,
     width: Optional[int] = None,
@@ -799,6 +834,93 @@ def cleanup_old_images(days_old: int = 7, dry_run: bool = True) -> Dict[str, Any
         
     except Exception as e:
         logger.error(f"Error cleaning up old images: {e}")
+        return {"error": str(e)}
+
+@mcp.tool() 
+def detect_custom_nodes() -> Dict[str, Any]:
+    """Detect installed ComfyUI custom nodes and their capabilities
+    
+    Returns:
+        Dictionary containing detected custom nodes and their features
+    """
+    try:
+        import requests
+        from pathlib import Path
+        
+        # Get all available nodes
+        response = requests.get(f"{comfyui_url}/object_info", timeout=10)
+        if response.status_code != 200:
+            return {"error": "Could not fetch node information"}
+            
+        all_nodes = response.json()
+        
+        # Categorize nodes by likely custom node packages
+        core_nodes = {
+            "CheckpointLoaderSimple", "CLIPTextEncode", "KSampler", "VAEDecode", 
+            "VAEEncode", "EmptyLatentImage", "LoadImage", "SaveImage", "UpscaleModelLoader"
+        }
+        
+        custom_categories = {}
+        custom_nodes = {}
+        
+        for node_name, node_info in all_nodes.items():
+            if node_name not in core_nodes:
+                category = node_info.get("category", "Unknown")
+                
+                # Group by category
+                if category not in custom_categories:
+                    custom_categories[category] = []
+                custom_categories[category].append(node_name)
+                
+                # Detect special capabilities
+                if any(keyword in node_name.lower() for keyword in ["controlnet", "control"]):
+                    if "controlnet" not in custom_nodes:
+                        custom_nodes["controlnet"] = []
+                    custom_nodes["controlnet"].append(node_name)
+                    
+                elif any(keyword in node_name.lower() for keyword in ["video", "animate", "motion"]):
+                    if "video_generation" not in custom_nodes:
+                        custom_nodes["video_generation"] = []
+                    custom_nodes["video_generation"].append(node_name)
+                    
+                elif any(keyword in node_name.lower() for keyword in ["upscale", "enhance", "restore"]):
+                    if "enhancement" not in custom_nodes:
+                        custom_nodes["enhancement"] = []
+                    custom_nodes["enhancement"].append(node_name)
+                    
+                elif any(keyword in node_name.lower() for keyword in ["inpaint", "outpaint", "mask"]):
+                    if "inpainting" not in custom_nodes:
+                        custom_nodes["inpainting"] = []
+                    custom_nodes["inpainting"].append(node_name)
+        
+        # Detect likely custom node directories
+        comfyui_base = Path(__file__).parent.parent.parent
+        custom_nodes_dir = comfyui_base / "custom_nodes"
+        installed_packages = []
+        
+        if custom_nodes_dir.exists():
+            for item in custom_nodes_dir.iterdir():
+                if item.is_dir() and not item.name.startswith('.'):
+                    installed_packages.append(item.name)
+        
+        return {
+            "total_nodes": len(all_nodes),
+            "core_nodes": len(core_nodes),
+            "custom_nodes": len(all_nodes) - len(core_nodes),
+            "categories": {cat: len(nodes) for cat, nodes in custom_categories.items()},
+            "capabilities": {cap: len(nodes) for cap, nodes in custom_nodes.items()},
+            "detected_features": {
+                "controlnet_support": "controlnet" in custom_nodes,
+                "video_generation": "video_generation" in custom_nodes,
+                "image_enhancement": "enhancement" in custom_nodes,
+                "inpainting_support": "inpainting" in custom_nodes
+            },
+            "installed_packages": installed_packages,
+            "custom_node_details": custom_nodes
+        }
+        
+    except Exception as e:
+        logger.error(f"Error detecting custom nodes: {e}")
         return {"error": str(e)}
 
 @mcp.tool()
@@ -2099,6 +2221,62 @@ def cancel_generation(
     except Exception as e:
         logger.error(f"Error cancelling generation: {e}")
         return {"error": str(e)}
+
+@mcp.tool()
+def get_performance_metrics() -> Dict[str, Any]:
+    """Get server performance metrics and statistics
+    
+    Returns:
+        Dictionary containing performance data and server metrics
+    """
+    try:
+        import psutil
+        import threading
+        
+        # Get system metrics
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        # Get ComfyUI stats if available
+        comfyui_stats = get_system_stats()
+        
+        # Threading info
+        thread_count = threading.active_count()
+        
+        return {
+            "server_metrics": {
+                "uptime_seconds": time.time() - startup_time if 'startup_time' in globals() else None,
+                "active_threads": thread_count,
+                "server_version": "2.0.0"
+            },
+            "system_metrics": {
+                "cpu_percent": cpu_percent,
+                "memory_total_gb": round(memory.total / (1024**3), 2),
+                "memory_used_gb": round(memory.used / (1024**3), 2),
+                "memory_percent": memory.percent,
+                "disk_total_gb": round(disk.total / (1024**3), 2),
+                "disk_free_gb": round(disk.free / (1024**3), 2),
+                "disk_percent": round((disk.used / disk.total) * 100, 1)
+            },
+            "comfyui_metrics": comfyui_stats if "error" not in comfyui_stats else None,
+            "recommendations": []
+        }
+        
+    except ImportError:
+        return {
+            "error": "psutil not installed - install with: pip install psutil",
+            "basic_metrics": {
+                "server_version": "2.0.0",
+                "active_threads": threading.active_count()
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting performance metrics: {e}")
+        return {"error": str(e)}
+
+# Track server startup time
+startup_time = time.time()
 
 if __name__ == "__main__":
     logger.info(f"Starting ComfyUI MCP server v2.0.0")
