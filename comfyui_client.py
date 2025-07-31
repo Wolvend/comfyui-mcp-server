@@ -33,7 +33,7 @@ class ComfyUIClient:
             logger.warning(f"Error fetching models: {e}")
             return []
 
-    def generate_image(self, prompt, width, height, workflow_id="basic_api_test", model=None):
+    def generate_image(self, prompt, width, height, workflow_id="basic_api_test", model=None, **kwargs):
         try:
             workflow_file = f"workflows/{workflow_id}.json"
             with open(workflow_file, "r") as f:

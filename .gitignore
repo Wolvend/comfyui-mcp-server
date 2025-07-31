@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+mcp_venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Test files
+test_*.py
+
+# Temporary files
+*.tmp
+.DS_Store
+run_mcp_server.sh
+
+# Downloaded files
+*.tar.gz
+*.zip
+
+# GitHub MCP binary (it's built separately)
+github-mcp-server/
+
+# MCP named pipes
+/tmp/mcp_*
