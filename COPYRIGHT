@@ -1,0 +1,32 @@
+ComfyUI MCP Server v1.0.0
+Copyright (c) 2024 ComfyUI MCP Team
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+================================================================================
+
+This software represents a comprehensive creative automation platform
+for ComfyUI integration through the Model Context Protocol (MCP).
+
+Version 1.0.0 includes:
+
+- 89 specialized tools for image and video generation
+- Workflow automation and preset management
+- Intelligent prompt optimization with AI
+- Batch operations with dependency management
+- Real-time preview and progress monitoring
+- LoRA model management integration
+- Advanced masking and control features
+
+All code in this repository has been written specifically for this project
+with the goal of providing a comprehensive creative automation platform.

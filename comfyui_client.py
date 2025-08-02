@@ -1,3 +1,13 @@
+"""
+ComfyUI Client Module
+
+Handles communication with ComfyUI API for the MCP Server.
+Provides workflow execution, monitoring, and result handling.
+
+Copyright 2024 ComfyUI MCP Team
+Part of ComfyUI MCP Server v1.0.0
+"""
+
 import requests
 import json
 import time
