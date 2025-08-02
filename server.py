@@ -150,8 +150,26 @@ except Exception as e:
 # Create FastMCP server with version info
 mcp = FastMCP(
     "comfyui-mcp-server",
-    version="2.5.0"
+    version="1.1.0"
 )
+
+# Global storage for professional features
+progress_tracking = {}  # Store detailed progress for each prompt_id
+webhook_registry = {}  # Store registered webhooks
+audit_log = []  # Store audit entries
+usage_quotas = defaultdict(lambda: {
+    "requests_per_minute": {"used": 0, "limit": 60},
+    "requests_per_day": {"used": 0, "limit": 5000},
+    "gpu_minutes_per_day": {"used": 0.0, "limit": 480.0},
+    "storage_gb": {"used": 0.0, "limit": 100.0}
+})
+performance_metrics = {
+    "requests_total": 0,
+    "requests_by_tool": Counter(),
+    "average_duration": {},
+    "error_count": 0,
+    "queue_metrics": []
+}
 
 # Add server capabilities information
 @mcp.tool()
@@ -163,16 +181,16 @@ def get_server_info() -> Dict[str, Any]:
     """
     try:
         return {
-            "server_version": "2.5.0",
+            "server_version": "1.1.0",
             "comfyui_url": comfyui_url,
             "available_models": comfyui_client.available_models or [],
             "status": "connected",
-            "total_tools": 81
+            "total_tools": 94
         }
     except Exception as e:
         logger.error(f"Error getting server info: {e}")
         return {
-            "server_version": "2.5.0",
+            "server_version": "1.1.0",
             "comfyui_url": comfyui_url,
             "status": "error",
             "error": str(e)
@@ -6923,14 +6941,559 @@ def auto_generate_mask(
         logger.error(f"Error generating mask: {e}")
         return {"error": str(e)}
 
+# ====================
+# Professional Features
+# ====================
+
+@mcp.tool()
+@monitor_performance
+def get_detailed_progress(
+    prompt_id: str,
+    include_preview: bool = True,
+    include_eta: bool = True
+) -> Dict[str, Any]:
+    """Get detailed progress with ETA and live preview
+    
+    Args:
+        prompt_id: The ID of the generation task
+        include_preview: Include preview URL if available
+        include_eta: Calculate and include ETA
+        
+    Returns:
+        Dictionary containing detailed progress information
+    """
+    try:
+        # Get basic status from ComfyUI
+        basic_status = get_generation_status(prompt_id)
+        
+        if "error" in basic_status:
+            return basic_status
+            
+        # Get or create detailed tracking
+        if prompt_id not in progress_tracking:
+            progress_tracking[prompt_id] = {
+                "start_time": time.time(),
+                "steps_completed": 0,
+                "total_steps": 30,  # Default, will be updated
+                "history": []
+            }
+        
+        tracking = progress_tracking[prompt_id]
+        
+        # Extract progress from queue status
+        current_step = 0
+        total_steps = 30
+        current_operation = "initializing"
+        
+        if basic_status["status"] == "in_progress":
+            # Try to extract progress from execution info
+            if "execution_info" in basic_status:
+                exec_info = basic_status["execution_info"]
+                if isinstance(exec_info, dict):
+                    current_step = exec_info.get("executed", 0)
+                    total_steps = exec_info.get("total", 30)
+                    
+            current_operation = "sampling"
+            percentage = (current_step / total_steps * 100) if total_steps > 0 else 0
+        else:
+            percentage = 100 if basic_status["status"] == "complete" else 0
+            current_operation = basic_status["status"]
+        
+        # Calculate ETA if requested
+        eta_info = {}
+        if include_eta and current_step > 0:
+            elapsed = time.time() - tracking["start_time"]
+            avg_time_per_step = elapsed / current_step
+            remaining_steps = total_steps - current_step
+            eta_seconds = avg_time_per_step * remaining_steps
+            
+            eta_info = {
+                "elapsed": f"{int(elapsed//60):02d}:{int(elapsed%60):02d}",
+                "eta": f"{int(eta_seconds//60):02d}:{int(eta_seconds%60):02d}",
+                "eta_timestamp": (datetime.now() + timedelta(seconds=eta_seconds)).isoformat()
+            }
+        
+        # Get preview URL if available
+        preview_info = {}
+        if include_preview:
+            preview_info = {
+                "url": f"{comfyui_url}/view?filename=preview_{prompt_id}.png",
+                "resolution": "256x256",
+                "update_interval": 5
+            }
+        
+        # Get resource usage
+        sys_stats = get_system_stats()
+        resources = {
+            "gpu_usage": sys_stats.get("gpu", {}).get("utilization", 0),
+            "vram_usage": sys_stats.get("gpu", {}).get("memory_used_percent", 0),
+            "cpu_usage": sys_stats.get("cpu", {}).get("percent", 0)
+        }
+        
+        result = {
+            "prompt_id": prompt_id,
+            "status": basic_status["status"],
+            "progress": {
+                "current_step": current_step,
+                "total_steps": total_steps,
+                "percentage": round(percentage, 1),
+                "current_operation": current_operation,
+                "sub_progress": f"Step {current_step}/{total_steps}"
+            },
+            "time": eta_info,
+            "preview": preview_info,
+            "resources": resources
+        }
+        
+        # Update tracking
+        tracking["steps_completed"] = current_step
+        tracking["total_steps"] = total_steps
+        tracking["history"].append({
+            "timestamp": datetime.now().isoformat(),
+            "step": current_step,
+            "operation": current_operation
+        })
+        
+        # Trigger webhooks if registered
+        _trigger_webhooks("progress", result)
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error getting detailed progress: {e}")
+        return {"error": str(e)}
+
+@mcp.tool()
+def register_progress_webhook(
+    webhook_url: str,
+    events: List[str] = ["start", "progress", "complete", "error"],
+    headers: Optional[Dict[str, str]] = None,
+    retry_policy: Dict[str, Any] = {"max_retries": 3, "backoff": 2}
+) -> Dict[str, Any]:
+    """Register webhook for real-time progress updates
+    
+    Args:
+        webhook_url: URL to send webhook notifications
+        events: List of events to subscribe to
+        headers: Optional headers to include in webhook requests
+        retry_policy: Retry configuration for failed webhooks
+        
+    Returns:
+        Dictionary with webhook registration details
+    """
+    try:
+        webhook_id = f"webhook_{len(webhook_registry) + 1}"
+        
+        webhook_registry[webhook_id] = {
+            "url": webhook_url,
+            "events": events,
+            "headers": headers or {},
+            "retry_policy": retry_policy,
+            "created_at": datetime.now().isoformat(),
+            "last_triggered": None,
+            "trigger_count": 0
+        }
+        
+        logger.info(f"Registered webhook {webhook_id} for events: {events}")
+        
+        return {
+            "success": True,
+            "webhook_id": webhook_id,
+            "events": events,
+            "status": "active"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error registering webhook: {e}")
+        return {"error": str(e)}
+
+def _trigger_webhooks(event: str, data: Dict[str, Any]):
+    """Internal function to trigger registered webhooks"""
+    if not requests:
+        return
+        
+    for webhook_id, webhook in webhook_registry.items():
+        if event in webhook["events"]:
+            # Run webhook in background thread
+            thread = threading.Thread(
+                target=_send_webhook,
+                args=(webhook_id, webhook, event, data)
+            )
+            thread.daemon = True
+            thread.start()
+
+def _send_webhook(webhook_id: str, webhook: Dict[str, Any], event: str, data: Dict[str, Any]):
+    """Send webhook with retry logic"""
+    if not requests:
+        return
+        
+    url = webhook["url"]
+    headers = webhook["headers"]
+    retry_policy = webhook["retry_policy"]
+    
+    payload = {
+        "event": event,
+        "timestamp": datetime.now().isoformat(),
+        "data": data
+    }
+    
+    max_retries = retry_policy.get("max_retries", 3)
+    backoff = retry_policy.get("backoff", 2)
+    
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            # Update webhook stats
+            webhook["last_triggered"] = datetime.now().isoformat()
+            webhook["trigger_count"] += 1
+            
+            logger.debug(f"Webhook {webhook_id} triggered successfully for event: {event}")
+            return
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(backoff ** attempt)
+            else:
+                logger.error(f"Failed to send webhook {webhook_id} after {max_retries} attempts: {e}")
+
+@mcp.tool()
+def health_check_detailed() -> Dict[str, Any]:
+    """Comprehensive health check for monitoring systems
+    
+    Returns:
+        Dictionary with detailed health status and metrics
+    """
+    try:
+        # Basic health check
+        basic_health = health_check()
+        
+        # Detailed checks
+        checks = {
+            "comfyui_connection": {
+                "status": "pass" if basic_health["status"] == "healthy" else "fail",
+                "latency_ms": 0
+            },
+            "gpu_available": {"status": "unknown", "device": "checking..."},
+            "disk_space": {"status": "unknown", "free_gb": 0},
+            "memory": {"status": "unknown", "free_gb": 0},
+            "models_loaded": {"status": "unknown", "count": 0},
+            "queue_health": {"status": "unknown", "processing_rate": 0}
+        }
+        
+        # Test ComfyUI connection with timing
+        start = time.time()
+        try:
+            comfyui_client.get_queue_status()
+            checks["comfyui_connection"]["latency_ms"] = int((time.time() - start) * 1000)
+        except:
+            checks["comfyui_connection"]["status"] = "fail"
+        
+        # Get system stats for detailed info
+        sys_stats = get_system_stats()
+        
+        # GPU check
+        if sys_stats.get("gpu"):
+            gpu_info = sys_stats["gpu"]
+            checks["gpu_available"] = {
+                "status": "pass",
+                "device": gpu_info.get("name", "Unknown GPU"),
+                "vram_gb": gpu_info.get("memory_total", 0) / 1024
+            }
+        else:
+            checks["gpu_available"]["status"] = "fail"
+        
+        # Disk space check
+        if sys_stats.get("disk"):
+            disk_info = sys_stats["disk"]
+            free_gb = disk_info.get("free", 0) / (1024**3)
+            checks["disk_space"] = {
+                "status": "pass" if free_gb > 10 else "warn" if free_gb > 5 else "fail",
+                "free_gb": round(free_gb, 2)
+            }
+        
+        # Memory check
+        if sys_stats.get("memory"):
+            mem_info = sys_stats["memory"]
+            free_gb = mem_info.get("available", 0) / (1024**3)
+            checks["memory"] = {
+                "status": "pass" if free_gb > 4 else "warn" if free_gb > 2 else "fail",
+                "free_gb": round(free_gb, 2),
+                "total_gb": round(mem_info.get("total", 0) / (1024**3), 2)
+            }
+        
+        # Models check
+        try:
+            models = list_models()
+            if "checkpoints" in models:
+                model_count = len(models["checkpoints"])
+                checks["models_loaded"] = {
+                    "status": "pass" if model_count > 0 else "warn",
+                    "count": model_count
+                }
+        except:
+            checks["models_loaded"]["status"] = "fail"
+        
+        # Queue health check
+        try:
+            queue_status = get_queue_status()
+            queue_size = queue_status.get("queue_pending", 0)
+            checks["queue_health"] = {
+                "status": "pass" if queue_size < 10 else "warn" if queue_size < 50 else "fail",
+                "queue_size": queue_size,
+                "processing_rate": 0.95  # Placeholder
+            }
+        except:
+            checks["queue_health"]["status"] = "fail"
+        
+        # Determine overall status
+        statuses = [check["status"] for check in checks.values()]
+        if "fail" in statuses:
+            overall_status = "unhealthy"
+        elif "warn" in statuses:
+            overall_status = "degraded"
+        else:
+            overall_status = "healthy"
+        
+        result = {
+            "status": overall_status,
+            "version": "1.0.0",
+            "uptime_seconds": int(time.time() - startup_time),
+            "checks": checks,
+            "dependencies": {
+                "comfyui": {
+                    "version": basic_health.get("version", "unknown"),
+                    "status": "healthy" if basic_health["status"] == "healthy" else "unhealthy"
+                },
+                "pytorch": {
+                    "version": sys_stats.get("pytorch_version", "unknown"),
+                    "status": "healthy"
+                }
+            },
+            "metrics": {
+                "requests_total": performance_metrics["requests_total"],
+                "error_rate": performance_metrics["error_count"] / max(performance_metrics["requests_total"], 1),
+                "active_webhooks": len(webhook_registry),
+                "audit_entries": len(audit_log)
+            }
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in detailed health check: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "version": "1.0.0",
+            "uptime_seconds": int(time.time() - startup_time)
+        }
+
+@mcp.tool()
+def get_audit_log(
+    start_time: str,
+    end_time: str,
+    user_id: Optional[str] = None,
+    compliance_format: str = "standard"
+) -> Dict[str, Any]:
+    """Get detailed audit logs for compliance
+    
+    Args:
+        start_time: ISO format start time
+        end_time: ISO format end time
+        user_id: Optional filter by user
+        compliance_format: Format type (standard, hipaa, gdpr)
+        
+    Returns:
+        Dictionary containing filtered audit entries
+    """
+    try:
+        start_dt = datetime.fromisoformat(start_time)
+        end_dt = datetime.fromisoformat(end_time)
+        
+        filtered_entries = []
+        for entry in audit_log:
+            entry_time = datetime.fromisoformat(entry["timestamp"])
+            if start_dt <= entry_time <= end_dt:
+                if user_id is None or entry.get("user") == user_id:
+                    # Format based on compliance requirements
+                    if compliance_format == "gdpr":
+                        # Add GDPR specific fields
+                        entry["data_categories"] = ["user_content"]
+                        entry["lawful_basis"] = "legitimate_interest"
+                        entry["retention_days"] = 90
+                    elif compliance_format == "hipaa":
+                        # Add HIPAA specific fields
+                        entry["phi_accessed"] = False
+                        entry["access_reason"] = "standard_operation"
+                        
+                    filtered_entries.append(entry)
+        
+        return {
+            "entries": filtered_entries,
+            "total_count": len(filtered_entries),
+            "time_range": {
+                "start": start_time,
+                "end": end_time
+            },
+            "compliance_format": compliance_format
+        }
+        
+    except Exception as e:
+        logger.error(f"Error retrieving audit log: {e}")
+        return {"error": str(e)}
+
+@mcp.tool()
+def get_usage_quota(
+    user_id: Optional[str] = None,
+    api_key: Optional[str] = None
+) -> Dict[str, Any]:
+    """Get usage quotas and limits
+    
+    Args:
+        user_id: User identifier
+        api_key: API key identifier
+        
+    Returns:
+        Dictionary with current usage and limits
+    """
+    try:
+        # Determine user identifier
+        identifier = user_id or api_key or "default"
+        
+        # Get or create quota entry
+        quota = usage_quotas[identifier]
+        
+        # Calculate reset time (daily reset at midnight)
+        now = datetime.now()
+        tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+        
+        return {
+            "user": identifier,
+            "quotas": quota,
+            "reset_at": tomorrow.isoformat(),
+            "tier": "professional",
+            "usage_percentage": {
+                "requests": (quota["requests_per_minute"]["used"] / quota["requests_per_minute"]["limit"]) * 100,
+                "gpu_minutes": (quota["gpu_minutes_per_day"]["used"] / quota["gpu_minutes_per_day"]["limit"]) * 100,
+                "storage": (quota["storage_gb"]["used"] / quota["storage_gb"]["limit"]) * 100
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting usage quota: {e}")
+        return {"error": str(e)}
+
+def _log_audit_entry(action: str, resource: str, user: str = "system", **kwargs):
+    """Internal function to log audit entries"""
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "user": user,
+        "action": action,
+        "resource": resource,
+        "ip_address": kwargs.get("ip_address", "127.0.0.1"),
+        "result": kwargs.get("result", "success"),
+        "parameters": kwargs.get("parameters", {}),
+        "duration_ms": kwargs.get("duration_ms", 0)
+    }
+    
+    audit_log.append(entry)
+    
+    # Keep audit log size manageable (last 10000 entries)
+    if len(audit_log) > 10000:
+        audit_log.pop(0)
+    
+    logger.debug(f"Audit: {action} on {resource} by {user}")
+
+def _update_usage_quota(user_id: str, metric: str, amount: float = 1.0):
+    """Internal function to update usage quotas"""
+    quota = usage_quotas[user_id]
+    
+    if metric == "request":
+        quota["requests_per_minute"]["used"] += 1
+        quota["requests_per_day"]["used"] += 1
+    elif metric == "gpu_minutes":
+        quota["gpu_minutes_per_day"]["used"] += amount
+    elif metric == "storage_gb":
+        quota["storage_gb"]["used"] = amount  # Set absolute value
+    
+    # Check limits and log warnings
+    for quota_type, limits in quota.items():
+        if isinstance(limits, dict) and "used" in limits and "limit" in limits:
+            if limits["used"] >= limits["limit"]:
+                logger.warning(f"User {user_id} exceeded {quota_type} limit")
+
+# Enhanced monitor_performance decorator to include audit logging
+def monitor_performance_with_audit(func):
+    """Enhanced performance monitoring with audit logging"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        tool_name = func.__name__
+        user_id = kwargs.get("user_id", "default")
+        
+        # Update metrics
+        performance_metrics["requests_total"] += 1
+        performance_metrics["requests_by_tool"][tool_name] += 1
+        
+        try:
+            result = func(*args, **kwargs)
+            execution_time = time.time() - start_time
+            
+            # Log successful execution
+            _log_audit_entry(
+                action=tool_name,
+                resource=kwargs.get("prompt_id", kwargs.get("workflow_id", "unknown")),
+                user=user_id,
+                result="success",
+                duration_ms=int(execution_time * 1000),
+                parameters={k: v for k, v in kwargs.items() if k != "api_key"}
+            )
+            
+            # Update usage quotas
+            _update_usage_quota(user_id, "request")
+            if "gpu" in tool_name or "generate" in tool_name:
+                _update_usage_quota(user_id, "gpu_minutes", execution_time / 60)
+            
+            # Add performance info to result
+            if isinstance(result, dict) and "error" not in result:
+                result["_performance"] = {
+                    "execution_time_seconds": round(execution_time, 3),
+                    "tool_name": tool_name,
+                    "timestamp": datetime.now().isoformat()
+                }
+            
+            return result
+            
+        except Exception as e:
+            execution_time = time.time() - start_time
+            performance_metrics["error_count"] += 1
+            
+            # Log failed execution
+            _log_audit_entry(
+                action=tool_name,
+                resource="error",
+                user=user_id,
+                result="error",
+                duration_ms=int(execution_time * 1000),
+                parameters={"error": str(e)}
+            )
+            
+            logger.error(f"PERF: {tool_name} failed after {execution_time:.2f}s - {e}")
+            raise
+            
+    return wrapper
+
 # Track server startup time
 startup_time = time.time()
 
 if __name__ == "__main__":
-    logger.info(f"Starting ComfyUI MCP server v1.0.0")
+    logger.info(f"Starting ComfyUI MCP server v1.1.0")
     logger.info(f"ComfyUI URL: {comfyui_url}")
     logger.info(f"Debug mode: {'ON' if os.getenv('DEBUG') else 'OFF'}")
-    logger.info(f"Total tools available: 81")
+    logger.info(f"Total tools available: 94")
+    logger.info(f"Professional features: Enhanced monitoring, webhooks, audit logging")
     
     # Check ComfyUI connection on startup
     health = health_check()

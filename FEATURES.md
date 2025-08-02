@@ -1,6 +1,6 @@
 # ComfyUI MCP Server - Feature Overview
 
-## 🎨 Complete Tool Catalog (89 Tools)
+## 🎨 Complete Tool Catalog (94 Tools)
 
 ### Image Generation (11 tools)
 | Tool | Description | Key Features |
@@ -135,6 +135,15 @@
 | `video_transition_effects` | Transitions | Multiple effects |
 | `video_text_overlay` | Text addition | Typography options |
 | `video_loop_creation` | Seamless loops | Perfect cycling |
+
+### Professional Monitoring (5 tools) - NEW in v1.1.0
+| Tool | Description | Key Features |
+|------|-------------|--------------|
+| `get_detailed_progress` | Rich progress reporting | ETA calculation, resource usage, preview URLs |
+| `register_progress_webhook` | Webhook notifications | Push updates, retry logic, event filtering |
+| `health_check_detailed` | Enterprise health monitoring | GPU/memory/disk checks, latency metrics |
+| `get_audit_log` | Compliance audit trails | GDPR/HIPAA formatting, time filtering |
+| `get_usage_quota` | Rate limiting & quotas | Per-user tracking, automatic enforcement |
 
 ## 🧠 Intelligent Features
 

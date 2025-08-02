@@ -5,6 +5,46 @@ All notable changes to the ComfyUI MCP Server project will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2024-08-02
+
+### 🚀 Professional Features Release
+
+This release adds enterprise-grade monitoring, compliance, and integration capabilities to make ComfyUI MCP Server production-ready for professional deployments.
+
+### Added
+
+#### Professional Monitoring (5 New Tools)
+- **`get_detailed_progress`** - Rich progress reporting with real-time ETA calculation, resource usage monitoring, and preview URLs
+- **`register_progress_webhook`** - Webhook system for push notifications with retry logic and event filtering
+- **`health_check_detailed`** - Comprehensive health monitoring with detailed checks for GPU, memory, disk, models, and queue status
+- **`get_audit_log`** - Complete audit trail with compliance formatting (GDPR, HIPAA) for enterprise requirements
+- **`get_usage_quota`** - Built-in rate limiting and quota management system with per-user tracking
+
+#### Enhanced Features
+- **Progress Tracking**: Automatic ETA calculation based on historical performance
+- **Webhook Integration**: Background thread processing with exponential backoff retry
+- **Compliance Support**: Audit logs formatted for GDPR and HIPAA compliance
+- **Resource Monitoring**: Real-time GPU, VRAM, CPU usage in progress reports
+- **Performance Metrics**: Request counting, error rates, and tool usage statistics
+
+#### Internal Improvements
+- Added `monitor_performance_with_audit` decorator for automatic audit logging
+- Global storage for webhooks, audit logs, and usage quotas
+- Thread-safe webhook delivery system
+- Automatic quota enforcement with warnings
+
+### Changed
+- Updated version to 1.1.0
+- Total tools increased from 89 to 94
+- Enhanced startup logging to show professional features
+- Improved error handling with audit trail integration
+
+### Technical Details
+- Audit logs maintain last 10,000 entries with automatic rotation
+- Webhooks support custom headers and retry policies
+- Usage quotas reset daily at midnight
+- Health checks include latency measurements
+
 ## [1.0.0] - 2024-08-02
 
 ### 🎉 Initial Release

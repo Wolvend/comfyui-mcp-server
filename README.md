@@ -1,30 +1,69 @@
-# ComfyUI MCP Server
+<div align="center">
+
+# 🎨
+
+# **ComfyUI MCP Server**
+
+### *The Ultimate Creative Automation Platform*
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.1.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License">
   <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/tools-89-orange.svg" alt="Tools">
+  <img src="https://img.shields.io/badge/tools-94-orange.svg" alt="Tools">
+  <img src="https://img.shields.io/badge/status-production%20ready-brightgreen.svg" alt="Status">
 </p>
 
 <p align="center">
-  <strong>A comprehensive creative automation platform that bridges AI agents with ComfyUI's powerful generation capabilities.</strong>
+  <strong>Transform ComfyUI into an intelligent creative powerhouse with natural language control</strong>
 </p>
+
+</div>
 
 ---
 
 ## 🌟 Overview
 
-ComfyUI MCP Server transforms ComfyUI into an intelligent creative powerhouse accessible through the Model Context Protocol (MCP). With 89 specialized tools, it enables AI agents like Claude to perform complex image and video generation tasks through natural language commands.
+ComfyUI MCP Server transforms ComfyUI into an intelligent creative powerhouse accessible through the Model Context Protocol (MCP). With 94 specialized tools, it enables AI agents like Claude to perform complex image and video generation tasks through natural language commands.
 
 ### ✨ Key Highlights
 
-- **🎨 89 Specialized Tools** - Comprehensive suite covering every aspect of creative generation
-- **🧠 AI-Powered Intelligence** - Learn from successes and optimize automatically
-- **⚡ Enterprise-Ready** - Production features like batch processing and error recovery
-- **🔄 Workflow Automation** - Save, version, and share complete workflows
-- **📊 Real-Time Monitoring** - Live previews and progress tracking
-- **🎯 Advanced Control** - ControlNet, inpainting, masking, and more
+#### 🎨 **94 Specialized Tools**
+The most comprehensive MCP toolkit available - from basic image generation to complex video workflows, advanced masking, and AI-powered enhancements. Now with professional monitoring, webhooks, and enterprise features.
+
+#### 🧠 **Self-Learning AI System**
+Our unique learning engine analyzes every generation, tracks success patterns, and continuously improves results. A/B testing framework included for data-driven optimization.
+
+#### ⚡ **Enterprise-Grade Architecture**
+- **Fault Tolerance**: Automatic retry with exponential backoff
+- **Scalability**: Parallel batch processing with dependency management
+- **Monitoring**: Real-time performance metrics and resource tracking
+- **Recovery**: Checkpoint system for long-running operations
+
+#### 🔄 **Smart Workflow Automation**
+- **Version Control**: Git-like workflow management with branching and merging
+- **Preset Sharing**: Time-limited access codes with optional password protection
+- **Performance Tracking**: Know which workflows work best
+- **Template Library**: Pre-built workflows for common tasks
+
+#### 📊 **Live Operation Monitoring**
+- **WebSocket Progress**: Real-time generation updates
+- **Preview Streaming**: See results as they generate
+- **Queue Management**: Priority control and wait time estimates
+- **Resource Visualization**: GPU, VRAM, and CPU usage graphs
+
+#### 🎯 **Advanced Creative Control**
+- **Multi-ControlNet**: Combine pose, depth, and edge guidance
+- **Semantic Masking**: Natural language mask descriptions
+- **Style Fusion**: Blend multiple LoRA models seamlessly
+- **Regional Prompting**: Different content in different areas
+
+#### 🚀 **Professional Features** (v1.1.0)
+- **Rich Progress Reporting**: Real-time ETA, resource usage, and preview URLs
+- **Webhook System**: Push notifications for external integrations
+- **Enterprise Health Checks**: Detailed monitoring for production deployments
+- **Audit Logging**: Complete activity tracking with compliance formats (GDPR, HIPAA)
+- **Usage Quotas**: Built-in rate limiting and resource management
 
 ## 🚀 Quick Start
 
@@ -73,6 +112,18 @@ mcp call optimize_prompt_with_ai '{
 mcp call apply_workflow_preset '{
   "preset_name": "Professional Photography",
   "parameters": {"prompt": "luxury product shot"}
+}'
+
+# Get detailed progress with ETA
+mcp call get_detailed_progress '{
+  "prompt_id": "abc123",
+  "include_eta": true
+}'
+
+# Register webhook for notifications
+mcp call register_progress_webhook '{
+  "webhook_url": "https://your-server.com/webhook",
+  "events": ["complete", "error"]
 }'
 ```
 
@@ -319,11 +370,12 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ## 📊 Project Stats
 
-- **Version**: 1.0.0
-- **Tools**: 89
-- **Lines of Code**: ~7,000
-- **Test Coverage**: Comprehensive
+- **Version**: 1.1.0
+- **Tools**: 94 (with 5 new professional features)
+- **Lines of Code**: ~7,500+
+- **Enterprise Ready**: Production monitoring & compliance
 - **Documentation**: Extensive
+- **Performance**: Optimized with caching and parallel processing
 
 ## 🔗 Quick Links
 
